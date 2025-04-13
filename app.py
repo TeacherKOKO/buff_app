@@ -73,67 +73,70 @@ def delete_result(name):
         with open(SAVE_FILE, 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
 
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     results = None
-    saved = load_saved_results()
+    winner = None
+    saved = load_saved_results()  # ← ここで必ずロード
 
     if request.method == "POST":
-        # 削除処理
-        if 'delete' in request.form:
-            name_to_delete = request.form.get('delete')
-            delete_result(name_to_delete)
-            return redirect(url_for('index'))
+        if "save_name" in request.form:
+            # 保存処理
+            save_name = request.form["save_name"]
+            results = {
+                "unit1": {key: float(request.form.get(f"unit1_{key}", 0)) for key in buff_vars},
+                "unit2": {key: float(request.form.get(f"unit2_{key}", 0)) for key in buff_vars},
+                "base_atk_1": float(request.form.get("base_atk_1", 0)),
+                "base_atk_2": float(request.form.get("base_atk_2", 0))
+            }
+            saved[save_name] = results
+            save_results(saved)
 
-        # 入力取得
-        u = [extract_int(request, f'u{i+1}') for i in range(9)]
-        v = [extract_int(request, f'v{i+1}') for i in range(9)]
-        buffs = [extract_float(request, key) for key in buff_vars]
+        elif "load_name" in request.form:
+            # 読み込み処理
+            load_name = request.form["load_name"]
+            results = saved.get(load_name)
 
-        # バフ処理
-        a, b, c = buffs[:4], buffs[4:8], buffs[8:12]
-        d, e, f_ = buffs[12:16], buffs[16:20], buffs[20:24]
-        a_buff, b_buff, c_buff = make_buffs(a), make_buffs(b), make_buffs(c)
-        d_buff, e_buff, f_buff = make_buffs(d), make_buffs(e), make_buffs(f_)
+        elif "delete_name" in request.form:
+            # 削除処理
+            delete_name = request.form["delete_name"]
+            if delete_name in saved:
+                del saved[delete_name]
+                save_results(saved)
 
-        # 計算処理
-        w, x = [], []
-        for i in range(3):  # 盾
-            for j in range(4):
-                w.append(u[i] * a_buff[i*4 + j])
-                x.append(v[i] * d_buff[i*4 + j])
-        for i in range(3, 6):  # 槍
-            for j in range(4):
-                w.append(u[i] * b_buff[(i-3)*4 + j])
-                x.append(v[i] * e_buff[(i-3)*4 + j])
-        for i in range(6, 9):  # 弓
-            for j in range(4):
-                w.append(u[i] * c_buff[(i-6)*4 + j])
-                x.append(v[i] * f_buff[(i-6)*4 + j])
-
-        total_w, total_x = sum(w), sum(x)
-
-        if total_w > total_x:
-            message = "✅ 勝利！バフは十分です！"
         else:
-            areas = buff_labels * 3
-            weak_buffs = [areas[i] for i in range(36) if w[i] < x[i]]
-            counts = Counter(weak_buffs)
-            message = "❌ 敗北...\n以下のバフを強化しましょう：\n"
-            for key, val in counts.most_common():
-                message += f"・{key}（{val}回）\n"
+            # 通常の計算処理
+            results = {
+                "unit1": {key: float(request.form.get(f"unit1_{key}", 0)) for key in buff_vars},
+                "unit2": {key: float(request.form.get(f"unit2_{key}", 0)) for key in buff_vars},
+                "base_atk_1": float(request.form.get("base_atk_1", 0)),
+                "base_atk_2": float(request.form.get("base_atk_2", 0))
+            }
 
-        results = {'w': w, 'x': x, 'message': message}
+        # 勝敗判定
+        if results:
+            atk1 = results["base_atk_1"] * (
+                1 + results["unit1"]["atk_buff"] / 100
+            ) * (1 + results["unit1"]["skill_buff"] / 100) * (1 + results["unit1"]["special_buff"] / 100)
+            atk2 = results["base_atk_2"] * (
+                1 + results["unit2"]["atk_buff"] / 100
+            ) * (1 + results["unit2"]["skill_buff"] / 100) * (1 + results["unit2"]["special_buff"] / 100)
 
-        if 'save' in request.form:
-            name = request.form.get('result_name', '')
-            save_result(name, results)
-            return redirect(url_for('index'))
+            if atk1 > atk2:
+                winner = "unit1"
+            elif atk2 > atk1:
+                winner = "unit2"
+            else:
+                winner = "draw"
 
-    # GET でも POST でも saved_results を渡すようにする
+            results["final_atk_1"] = atk1
+            results["final_atk_2"] = atk2
+
     return render_template(
         "index.html",
         results=results,
+        winner=winner,
         saved_results=saved,
         unit_labels=unit_labels,
         buff_vars=buff_vars,
