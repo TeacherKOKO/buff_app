@@ -47,8 +47,12 @@ def make_buffs(base):
 
 def load_saved_results():
     if os.path.exists(SAVE_FILE):
-        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(SAVE_FILE, 'r', encoding='utf-8') as f:
+                data = f.read().strip()
+                return json.loads(data) if data else {}
+        except json.JSONDecodeError:
+            return {}
     return {}
 
 def save_result(name, result):
@@ -62,12 +66,25 @@ def save_result(name, result):
     with open(SAVE_FILE, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
+def delete_result(name):
+    results = load_saved_results()
+    if name in results:
+        del results[name]
+        with open(SAVE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(results, f, ensure_ascii=False, indent=2)
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     results = None
     saved = load_saved_results()
 
     if request.method == "POST":
+        # 削除リクエストの処理
+        if 'delete' in request.form:
+            name_to_delete = request.form.get('delete')
+            delete_result(name_to_delete)
+            return redirect(url_for('index'))
+
         u = [extract_int(request, f'u{i+1}') for i in range(9)]
         v = [extract_int(request, f'v{i+1}') for i in range(9)]
         buffs = [extract_float(request, key) for key in buff_vars]
@@ -102,11 +119,7 @@ def index():
         if total_w > total_x:
             message = "✅ 勝利！バフは十分です！"
         else:
-            areas = [
-                "盾兵体力", "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力",
-                "槍兵体力", "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力",
-                "弓兵体力", "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力"
-            ] * 3
+            areas = buff_labels * 3
             weak_buffs = [areas[i] for i in range(36) if w[i] < x[i]]
             counts = Counter(weak_buffs)
             message = "❌ 敗北...\n以下のバフを強化しましょう：\n"
@@ -115,19 +128,19 @@ def index():
 
         results = {'w': w, 'x': x, 'message': message}
 
-        # 保存処理
         if 'save' in request.form:
-            name = request.form.get('save_name', '')
+            name = request.form.get('result_name', '')
             save_result(name, results)
+            return redirect(url_for('index'))
 
     return render_template(
         "index.html",
-        unit_labels=unit_labels,
-        indexed_buffs_1=list(enumerate(buff_labels)),
-        indexed_buffs_2=list(enumerate(buff_labels, start=12)),
-        buff_vars=buff_vars,
         results=results,
-        saved=saved
+        saved_results=saved,
+        unit_labels=unit_labels,
+        buff_vars=buff_vars,
+        indexed_buffs_1=list(enumerate(buff_labels)),
+        indexed_buffs_2=list(enumerate(buff_labels))
     )
 
 if __name__ == "__main__":
