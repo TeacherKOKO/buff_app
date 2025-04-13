@@ -1,65 +1,71 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>バフ計算ツール</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <title>バフ計算アプリ</title>
+  <style>
+    body {
+      background: #e0f7fa;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 2em;
+    }
+    .container {
+      background: white;
+      border-radius: 10px;
+      padding: 2em;
+      max-width: 500px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    h1 { text-align: center; }
+    label, input { display: block; width: 100%; margin-top: 1em; }
+    button { margin-top: 1em; width: 100%; padding: 0.5em; }
+    .result { margin-top: 1em; font-size: 1.2em; font-weight: bold; color: #00796b; }
+    .saved {
+      margin-top: 2em;
+      border-top: 1px solid #ccc;
+      padding-top: 1em;
+    }
+  </style>
 </head>
 <body>
-<div class="snow"></div>
-<div class="container">
+  <div class="container">
     <h1>❄ White Out Survival バフ計算機 ❄</h1>
-    <form method="post">
-        <h2>味方の兵の数</h2>
-        <ul>{% for i in range(9) %}
-            <li>{{ unit_labels[i] }}: <input type="number" name="u{{i+1}}" min="1" max="99999999"></li>
-        {% endfor %}</ul>
-
-        <h2>敵の兵の数</h2>
-        <ul>{% for i in range(9) %}
-            <li>{{ unit_labels[i] }}: <input type="number" name="v{{i+1}}" min="1" max="99999999"></li>
-        {% endfor %}</ul>
-
-        <h2>味方のバフ</h2>
-        <ul>{% for i, label in indexed_buffs_1 %}
-            <li>{{ label }}: <input type="number" step="0.1" name="{{ buff_vars[i] }}"></li>
-        {% endfor %}</ul>
-
-        <h2>敵のバフ</h2>
-        <ul>{% for i, label in indexed_buffs_2 %}
-            <li>{{ label }}: <input type="number" step="0.1" name="{{ buff_vars[i] }}"></li>
-        {% endfor %}</ul>
-
-        <h3>名前を付けて保存する？</h3>
-        <input type="text" name="result_name" placeholder="結果名（空白で自動）">
-        <button type="submit" name="save">保存</button>
-        <button type="submit">計算のみ</button>
-
-        <h3>保存された結果の読み込み・削除</h3>
-        <select name="load_name">
-            {% for name in saved_results.keys() %}
-                <option value="{{ name }}">{{ name }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" name="load">読み込み</button>
-        <button type="submit" name="delete">削除</button>
+    <form method="POST">
+      <label>元のステータス:
+        <input type="number" name="base_stat" value="{{ base_stat or '' }}" required>
+      </label>
+      <label>バフ値 (%):
+        <input type="number" name="buff_percent" value="{{ buff_percent or '' }}" required>
+      </label>
+      <label>保存名（任意）:
+        <input type="text" name="save_name">
+      </label>
+      <button type="submit">計算</button>
     </form>
 
-    {% if results %}
-    <div class="results">
-        <h2>計算結果</h2>
-        <ul>
-            {% for i in range(36) %}
-                <li class="{{ 'win' if results['w'][i] > results['x'][i] else 'lose' }}">
-                    味方: {{ results['w'][i]|round(1) }} vs 敵: {{ results['x'][i]|round(1) }}
-                </li>
-            {% endfor %}
-        </ul>
-        <pre>{{ results['message'] }}</pre>
-    </div>
+    {% if result is defined %}
+      <div class="result">結果: {{ result }}</div>
     {% endif %}
-</div>
-<p>Presented by ココ先生 form #2501</p>
+
+    <div class="saved">
+      <h2>保存された結果</h2>
+      {% if saved_results %}
+        <ul>
+          {% for name, data in saved_results.items() %}
+            <li>
+              <strong>{{ name }}</strong>：
+              {{ data.base_stat }} × (1 + {{ data.buff_percent }}%) = {{ data.result }}
+              [<a href="{{ url_for('load_result', name=name) }}">読み込み</a>]
+              [<a href="{{ url_for('delete_result', name=name) }}">削除</a>]
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>保存された結果はありません。</p>
+      {% endif %}
+    </div>
+  </div>
+  <p>Presented by ココ先生 form #2501</p>  
 </body>
 </html>
