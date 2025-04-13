@@ -79,42 +79,39 @@ def index():
     saved = load_saved_results()
 
     if request.method == "POST":
-        # 削除リクエストの処理
+        # 削除処理
         if 'delete' in request.form:
             name_to_delete = request.form.get('delete')
             delete_result(name_to_delete)
             return redirect(url_for('index'))
 
+        # 入力取得
         u = [extract_int(request, f'u{i+1}') for i in range(9)]
         v = [extract_int(request, f'v{i+1}') for i in range(9)]
         buffs = [extract_float(request, key) for key in buff_vars]
 
+        # バフ処理
         a, b, c = buffs[:4], buffs[4:8], buffs[8:12]
         d, e, f_ = buffs[12:16], buffs[16:20], buffs[20:24]
+        a_buff, b_buff, c_buff = make_buffs(a), make_buffs(b), make_buffs(c)
+        d_buff, e_buff, f_buff = make_buffs(d), make_buffs(e), make_buffs(f_)
 
-        a_buff = make_buffs(a)
-        b_buff = make_buffs(b)
-        c_buff = make_buffs(c)
-        d_buff = make_buffs(d)
-        e_buff = make_buffs(e)
-        f_buff = make_buffs(f_)
-
+        # 計算処理
         w, x = [], []
-        for i in range(3):
+        for i in range(3):  # 盾
             for j in range(4):
-                w.append(u[i] * a_buff[i*4+j])
-                x.append(v[i] * d_buff[i*4+j])
-        for i in range(3, 6):
+                w.append(u[i] * a_buff[i*4 + j])
+                x.append(v[i] * d_buff[i*4 + j])
+        for i in range(3, 6):  # 槍
             for j in range(4):
-                w.append(u[i] * b_buff[(i-3)*4+j])
-                x.append(v[i] * e_buff[(i-3)*4+j])
-        for i in range(6, 9):
+                w.append(u[i] * b_buff[(i-3)*4 + j])
+                x.append(v[i] * e_buff[(i-3)*4 + j])
+        for i in range(6, 9):  # 弓
             for j in range(4):
-                w.append(u[i] * c_buff[(i-6)*4+j])
-                x.append(v[i] * f_buff[(i-6)*4+j])
+                w.append(u[i] * c_buff[(i-6)*4 + j])
+                x.append(v[i] * f_buff[(i-6)*4 + j])
 
-        total_w = sum(w)
-        total_x = sum(x)
+        total_w, total_x = sum(w), sum(x)
 
         if total_w > total_x:
             message = "✅ 勝利！バフは十分です！"
@@ -133,6 +130,7 @@ def index():
             save_result(name, results)
             return redirect(url_for('index'))
 
+    # GET でも POST でも saved_results を渡すようにする
     return render_template(
         "index.html",
         results=results,
