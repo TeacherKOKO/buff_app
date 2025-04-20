@@ -1,72 +1,108 @@
-from flask import Flask, render_template, request, redirect, url_for
-import json
-import os
+from flask import Flask, render_template, request
+from collections import Counter
 
 app = Flask(__name__)
-SAVE_FILE = "saved_results.json"
 
-def load_saved_results():
-    if not os.path.exists(SAVE_FILE):
-        return {}
-    with open(SAVE_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+unit_labels = [
+    "盾兵T8", "盾兵T9", "盾兵T10",
+    "槍兵T8", "槍兵T9", "槍兵T10",
+    "弓兵T8", "弓兵T9", "弓兵T10"
+]
 
-def save_results(data):
-    with open(SAVE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+buff_labels = [
+    "盾兵体力", "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力",
+    "槍兵体力", "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力",
+    "弓兵体力", "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力"
+]
 
-@app.route("/", methods=["GET", "POST", "HEAD"])
+buff_vars = [
+    'a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4', 'c1', 'c2', 'c3', 'c4',
+    'a5', 'a6', 'a7', 'a8', 'b5', 'b6', 'b7', 'b8', 'c5', 'c6', 'c7', 'c8'
+]
+
+def extract_float(request, key):
+    try:
+        val = float(request.form.get(key, 0))
+        return max(0, val)
+    except:
+        return 0
+
+def extract_int(request, key):
+    val = request.form.get(key)
+    if val and val.isdigit():
+        return max(0, int(val))
+    return 0
+
+def make_buffs(base):
+    return [
+        1 + base[0]/100, 1 + base[1]/100, 1 + base[2]/100, 1 + base[3]/100,
+        1 + base[0]/100, 1 + base[1]/100, 1 + base[2]/100, 1 + base[3]/100,
+        1 + base[0]/100, 1 + base[1]/100, 1 + base[2]/100, 1 + base[3]/100
+    ]
+
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    saved_results = load_saved_results()
+    results = None
+    if request.method == 'POST':
+        u = [extract_int(request, f'u{i+1}') for i in range(9)]
+        v = [extract_int(request, f'v{i+1}') for i in range(9)]
+        buffs = [extract_float(request, key) for key in buff_vars]
 
-    if request.method == "HEAD":
-        return "", 200
+        a = buffs[:4]
+        b = buffs[4:8]
+        c = buffs[8:12]
+        d = buffs[12:16]
+        e = buffs[16:20]
+        f_ = buffs[20:24]
 
-    if request.method == "POST":
-        base_stat = float(request.form.get("base_stat", 0))
-        buff_percent = float(request.form.get("buff_percent", 0))
-        result = base_stat * (1 + buff_percent / 100)
+        a_buff = make_buffs(a)
+        b_buff = make_buffs(b)
+        c_buff = make_buffs(c)
+        d_buff = make_buffs(d)
+        e_buff = make_buffs(e)
+        f_buff = make_buffs(f_)
 
-        save_name = request.form.get("save_name")
-        if save_name:
-            saved_results[save_name] = {
-                "base_stat": base_stat,
-                "buff_percent": buff_percent,
-                "result": result
-            }
-            save_results(saved_results)
+        w = []
+        x = []
+        for i in range(3):
+            for j in range(4):
+                w.append(u[i] * a_buff[i*4+j])
+                x.append(v[i] * d_buff[i*4+j])
+        for i in range(3, 6):
+            for j in range(4):
+                w.append(u[i] * b_buff[(i-3)*4+j])
+                x.append(v[i] * e_buff[(i-3)*4+j])
+        for i in range(6, 9):
+            for j in range(4):
+                w.append(u[i] * c_buff[(i-6)*4+j])
+                x.append(v[i] * f_buff[(i-6)*4+j])
 
-        return render_template(
-            "index.html",
-            result=result,
-            base_stat=base_stat,
-            buff_percent=buff_percent,
-            saved_results=saved_results
-        )
+        total_w = sum(w)
+        total_x = sum(x)
 
-    return render_template("index.html", saved_results=saved_results)
+        if total_w > total_x:
+            message = f"✅ 問題なし！素晴らしい育成だ！\n（味方: {round(total_w)} vs 敵: {round(total_x)}）"
+        else:
+            buff_areas = [
+                "盾兵体力", "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力",
+                "盾兵体力", "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力",
+                "盾兵体力", "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力",
+                "槍兵体力", "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力",
+                "槍兵体力", "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力",
+                "槍兵体力", "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力",
+                "弓兵体力", "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力",
+                "弓兵体力", "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力",
+                "弓兵体力", "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力",
+            ]
+            weak_buffs = [buff_areas[i] for i in range(36) if w[i] < x[i]]
+            counts = Counter(weak_buffs)
+            message = f"❌ 敗北しています（味方: {round(total_w)} vs 敵: {round(total_x)}）\n以下のバフを強化すると勝てるかも！！：\n"
+            for key, val in counts.most_common():
+                message += f"{key}（{val}回）\n"
 
-@app.route("/load/<name>")
-def load_result(name):
-    saved_results = load_saved_results()
-    if name in saved_results:
-        data = saved_results[name]
-        return render_template(
-            "index.html",
-            result=data["result"],
-            base_stat=data["base_stat"],
-            buff_percent=data["buff_percent"],
-            saved_results=saved_results
-        )
-    return redirect(url_for("index"))
+        results = {'w': w, 'x': x, 'message': message, 'total_w': total_w, 'total_x': total_x}
 
-@app.route("/delete/<name>")
-def delete_result(name):
-    saved_results = load_saved_results()
-    if name in saved_results:
-        del saved_results[name]
-        save_results(saved_results)
-    return redirect(url_for("index"))
+    return render_template("index.html", unit_labels=unit_labels, buff_labels=buff_labels, buff_vars=buff_vars, results=results)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

@@ -1,71 +1,96 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>バフ計算アプリ</title>
-  <style>
-    body {
-      background: #e0f7fa;
-      font-family: 'Segoe UI', sans-serif;
-      padding: 2em;
-    }
-    .container {
-      background: white;
-      border-radius: 10px;
-      padding: 2em;
-      max-width: 500px;
-      margin: auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    }
-    h1 { text-align: center; }
-    label, input { display: block; width: 100%; margin-top: 1em; }
-    button { margin-top: 1em; width: 100%; padding: 0.5em; }
-    .result { margin-top: 1em; font-size: 1.2em; font-weight: bold; color: #00796b; }
-    .saved {
-      margin-top: 2em;
-      border-top: 1px solid #ccc;
-      padding-top: 1em;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>バフ計算ツール</title>
+    <style>
+        body {
+            background: linear-gradient(to bottom, #cce0ff, #ffffff);
+            color: #333;
+            font-family: sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+        .win { color: green; }
+        .lose { color: red; }
+        ul { list-style: none; padding: 0; }
+        li { margin-bottom: 5px; }
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            color: #fff;
+            font-size: 1.2em;
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            to {
+                transform: translateY(100vh);
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1>❄ White Out Survival バフ計算機 ❄</h1>
-    <form method="POST">
-      <label>元のステータス:
-        <input type="number" name="base_stat" value="{{ base_stat or '' }}" required>
-      </label>
-      <label>バフ値 (%):
-        <input type="number" name="buff_percent" value="{{ buff_percent or '' }}" required>
-      </label>
-      <label>保存名（任意）:
-        <input type="text" name="save_name">
-      </label>
-      <button type="submit">計算</button>
+    <h1>❄️ バフ比較計算ツール ❄️</h1>
+
+    <form method="post">
+        <h2>味方の兵数</h2>
+        <ul>
+            {% for i in range(9) %}
+            <li>{{ unit_labels[i] }}: <input type="number" name="u{{ i+1 }}" min="0"></li>
+            {% endfor %}
+        </ul>
+
+        <h2>敵の兵数</h2>
+        <ul>
+            {% for i in range(9) %}
+            <li>{{ unit_labels[i] }}: <input type="number" name="v{{ i+1 }}" min="0"></li>
+            {% endfor %}
+        </ul>
+
+        <h2>味方バフ</h2>
+        <ul>
+            {% for i in range(12) %}
+            <li>{{ buff_labels[i] }}: <input type="number" step="0.1" name="{{ buff_vars[i] }}"></li>
+            {% endfor %}
+        </ul>
+
+        <h2>敵バフ</h2>
+        <ul>
+            {% for i in range(12) %}
+            <li>{{ buff_labels[i] }}: <input type="number" step="0.1" name="{{ buff_vars[i+12] }}"></li>
+            {% endfor %}
+        </ul>
+
+        <button type="submit">計算！</button>
     </form>
 
-    {% if result is defined %}
-      <div class="result">結果: {{ result }}</div>
+    {% if results %}
+        <h2>🔎 結果</h2>
+        <p>味方総計: <strong>{{ results.total_w | round(1) }}</strong></p>
+        <p>敵総計: <strong>{{ results.total_x | round(1) }}</strong></p>
+
+        <ul>
+            {% for i in range(36) %}
+            <li class="{{ 'win' if results.w[i] > results.x[i] else 'lose' }}">
+                味方: {{ results.w[i]|round(1) }} vs 敵: {{ results.x[i]|round(1) }}
+            </li>
+            {% endfor %}
+        </ul>
+
+        <pre>{{ results.message }}</pre>
     {% endif %}
 
-    <div class="saved">
-      <h2>保存された結果</h2>
-      {% if saved_results %}
-        <ul>
-          {% for name, data in saved_results.items() %}
-            <li>
-              <strong>{{ name }}</strong>：
-              {{ data.base_stat }} × (1 + {{ data.buff_percent }}%) = {{ data.result }}
-              [<a href="{{ url_for('load_result', name=name) }}">読み込み</a>]
-              [<a href="{{ url_for('delete_result', name=name) }}">削除</a>]
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p>保存された結果はありません。</p>
-      {% endif %}
-    </div>
-  </div>
-  <p>Presented by ココ先生 form #2501</p>  
+    <!-- 雪アニメーション -->
+    <script>
+        for (let i = 0; i < 50; i++) {
+            let snow = document.createElement("div");
+            snow.className = "snowflake";
+            snow.style.left = Math.random() * 100 + "vw";
+            snow.style.animationDuration = 5 + Math.random() * 5 + "s";
+            snow.style.opacity = Math.random();
+            snow.textContent = "❄️";
+            document.body.appendChild(snow);
+        }
+    </script>
 </body>
 </html>
