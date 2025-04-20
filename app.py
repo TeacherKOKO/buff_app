@@ -8,19 +8,54 @@ HTML_TEMPLATE = """
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>バフ計算ツール</title>
+    <title>バフ計算ツール - 冬テーマ</title>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; padding: 20px; background: #eef8ff; }
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background: linear-gradient(#e0f7ff, #a0cbe8);
+            position: relative;
+            overflow-x: hidden;
+        }
+        h1, h2 { color: #003366; }
         ul { list-style: none; padding: 0; }
         li { margin-bottom: 5px; }
-        .win { color: green; }
-        .lose { color: red; }
-        pre { white-space: pre-wrap; background: #fff; padding: 10px; border-radius: 5px; }
-        .scroll-box { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; background: #fff; padding: 10px; border-radius: 8px; }
+        .win { color: green; font-weight: bold; }
+        .lose { color: red; font-weight: bold; }
+        pre {
+            white-space: pre-wrap;
+            background: #ffffffdd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .scroll-box {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            background: #ffffffee;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .snowflake {
+            position: fixed;
+            top: -10px;
+            color: #fff;
+            font-size: 1.5em;
+            pointer-events: none;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            0% { transform: translateY(-10px); }
+            100% { transform: translateY(100vh); }
+        }
     </style>
 </head>
 <body>
-    <h1>バフ比較計算ツール</h1>
+    <h1>❄️ バフ比較計算ツール ❄️</h1>
+
     <form method="post">
         <h2>味方の兵の数</h2>
         <ul>
@@ -67,6 +102,21 @@ HTML_TEMPLATE = """
         <h3>判定:</h3>
         <pre>{{ results['message'] }}</pre>
     {% endif %}
+
+    <!-- 雪アニメーション -->
+    <script>
+        const snowContainer = document.createDocumentFragment();
+        for (let i = 0; i < 50; i++) {
+            const snowflake = document.createElement("div");
+            snowflake.className = "snowflake";
+            snowflake.style.left = Math.random() * 100 + "vw";
+            snowflake.style.animationDuration = 5 + Math.random() * 5 + "s";
+            snowflake.style.opacity = Math.random();
+            snowflake.innerHTML = "❄️";
+            snowContainer.appendChild(snowflake);
+        }
+        document.body.appendChild(snowContainer);
+    </script>
 </body>
 </html>
 """
@@ -121,11 +171,9 @@ def index():
         v = [extract_int(request, f'v{i+1}') for i in range(9)]
         buffs = [extract_float(request, key) for key in buff_vars]
 
-        # 味方
         a = buffs[0:4]
         b = buffs[4:8]
         c = buffs[8:12]
-        # 敵
         d = buffs[12:16]
         e = buffs[16:20]
         f_ = buffs[20:24]
