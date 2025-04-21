@@ -9,8 +9,9 @@
 </head>
 <body>
     <div class="snow"></div>
-    <h1>バフ比較計算機</h1>
-
+    <h1>❄ White Out Survival バフ計算機 ❄</h1>
+    <p>Presented by ココ先生 form #2501</p>  
+    
     <form method="POST">
         <div class="unit-section">
             <h2>味方ユニット</h2>
@@ -26,12 +27,15 @@
 
             <h2>味方バフ</h2>
             <ul>
-                {% for label in buff_labels %}
-                    <li>
-                        <label>{{ label }}</label>
-                        <input type="text" name="{{ buff_vars[loop.index0] }}" class="comma-input"
-                               value="{{ request.form.get(buff_vars[loop.index0], loaded_data.get(buff_vars[loop.index0], '')) }}">
-                    </li>
+                {% for i in range(0, 20, 4) %}
+                    <li><strong>{{ unit_labels[i // 4] }}</strong></li>
+                    {% for j in range(4) %}
+                        <li>
+                            <label>{{ buff_labels[j] }}</label>
+                            <input type="text" name="{{ buff_vars[i + j] }}" class="comma-input"
+                                   value="{{ request.form.get(buff_vars[i + j], loaded_data.get(buff_vars[i + j], '')) }}">
+                        </li>
+                    {% endfor %}
                 {% endfor %}
             </ul>
         </div>
@@ -50,12 +54,15 @@
 
             <h2>敵バフ</h2>
             <ul>
-                {% for label in buff_labels %}
-                    <li>
-                        <label>{{ label }}</label>
-                        <input type="text" name="{{ buff_vars[loop.index0 + 12] }}" class="comma-input"
-                               value="{{ request.form.get(buff_vars[loop.index0 + 12], loaded_data.get(buff_vars[loop.index0 + 12], '')) }}">
-                    </li>
+                {% for i in range(20, 40, 4) %}
+                    <li><strong>{{ unit_labels[(i - 20) // 4] }}</strong></li>
+                    {% for j in range(4) %}
+                        <li>
+                            <label>{{ buff_labels[j] }}</label>
+                            <input type="text" name="{{ buff_vars[i + j] }}" class="comma-input"
+                                   value="{{ request.form.get(buff_vars[i + j], loaded_data.get(buff_vars[i + j], '')) }}">
+                        </li>
+                    {% endfor %}
                 {% endfor %}
             </ul>
         </div>
