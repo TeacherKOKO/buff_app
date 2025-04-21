@@ -2,150 +2,109 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>バフ計算ツール</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(to bottom, #a2cfff, #ffffff);
-            color: #333;
-            padding: 20px;
-            overflow-x: hidden;
-        }
-
-        h2, h3 {
-            margin-top: 30px;
-            color: #004466;
-        }
-
-        ul {
-            list-style-type: none;
-            padding-left: 0;
-        }
-
-        li {
-            margin-bottom: 8px;
-        }
-
-        input[type="number"] {
-            width: 150px;
-            padding: 4px;
-            text-align: right;
-        }
-
-        button {
-            padding: 10px 20px;
-            margin-top: 20px;
-            background-color: #007acc;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        .win { color: green; }
-        .lose { color: red; }
-
-        pre {
-            background-color: #f9f9f9;
-            border: 1px solid #ccc;
-            padding: 10px;
-            white-space: pre-wrap;
-        }
-
-        .snow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            z-index: 9999;
-            width: 100%;
-            height: 100%;
-        }
-
-        .snowflake {
-            position: absolute;
-            top: -10px;
-            color: #fff;
-            user-select: none;
-            font-size: 1em;
-            animation: fall linear infinite;
-        }
-
-        @keyframes fall {
-            0% {
-                transform: translateY(0);
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(100vh);
-                opacity: 0;
-            }
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バフ比較計算機</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='snow.js') }}"></script>
 </head>
 <body>
-    <h1>❄ White Out Survival バフ計算機 ❄</h1>
-    <p>Presented by ココ先生 form #2501</p>  
-    <form method="post">
-        <h2>味方の兵の数</h2>
-        <ul>
-            {% for i in range(1, 10) %}
-            <li>{{ unit_labels[i-1] }}: <input type="text" name="u{{i}}" inputmode="numeric" pattern="\d+"></li>
-            {% endfor %}
-        </ul>
+    <div class="snow"></div>
+    <h1>バフ比較計算機</h1>
 
-        <h2>敵の兵の数</h2>
-        <ul>
-            {% for i in range(1, 10) %}
-            <li>{{ unit_labels[i-1] }}: <input type="text" name="v{{i}}" inputmode="numeric" pattern="\d+"></li>
-            {% endfor %}
-        </ul>
+    <form method="POST">
+        <div class="unit-section">
+            <h2>味方ユニット</h2>
+            <ul>
+                {% for label in unit_labels %}
+                    <li>
+                        <label>{{ label }}</label>
+                        <input type="text" name="u{{ loop.index }}" class="comma-input"
+                               value="{{ request.form.get('u' ~ loop.index, loaded_data.get('u' ~ loop.index, '')) }}">
+                    </li>
+                {% endfor %}
+            </ul>
 
-        <h2>味方のバフ</h2>
-        <ul>
-            {% for i, label in enumerate(buff_labels[:12]) %}
-            <li>{{ label }}: <input type="text" name="{{ buff_vars[i] }}" inputmode="decimal" pattern="\d+(\.\d+)?"></li>
-            {% endfor %}
-        </ul>
+            <h2>味方バフ</h2>
+            <ul>
+                {% for label in buff_labels %}
+                    <li>
+                        <label>{{ label }}</label>
+                        <input type="text" name="{{ buff_vars[loop.index0] }}" class="comma-input"
+                               value="{{ request.form.get(buff_vars[loop.index0], loaded_data.get(buff_vars[loop.index0], '')) }}">
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
 
-        <h2>敵のバフ</h2>
-        <ul>
-            {% for i, label in enumerate(buff_labels[:12]) %}
-            <li>{{ label }}: <input type="text" name="{{ buff_vars[i+12] }}" inputmode="decimal" pattern="\d+(\.\d+)?"></li>
-            {% endfor %}
-        </ul>
+        <div class="unit-section">
+            <h2>敵ユニット</h2>
+            <ul>
+                {% for label in unit_labels %}
+                    <li>
+                        <label>{{ label }}</label>
+                        <input type="text" name="v{{ loop.index }}" class="comma-input"
+                               value="{{ request.form.get('v' ~ loop.index, loaded_data.get('v' ~ loop.index, '')) }}">
+                    </li>
+                {% endfor %}
+            </ul>
 
-        <button type="submit">計算</button>
+            <h2>敵バフ</h2>
+            <ul>
+                {% for label in buff_labels %}
+                    <li>
+                        <label>{{ label }}</label>
+                        <input type="text" name="{{ buff_vars[loop.index0 + 12] }}" class="comma-input"
+                               value="{{ request.form.get(buff_vars[loop.index0 + 12], loaded_data.get(buff_vars[loop.index0 + 12], '')) }}">
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="form-actions">
+            <input type="submit" value="計算">
+            <input type="text" name="save_name" placeholder="保存名（任意）">
+            <button type="submit" name="action" value="save">保存</button>
+        </div>
     </form>
 
     {% if results %}
-        <h2>計算結果</h2>
-        <ul>
-            {% for i in range(36) %}
-                <li class="{{ 'win' if results['w'][i] > results['x'][i] else 'lose' }}">
-                    味方: {{ results['w'][i]|round(1)|int|format(',') }} vs 敵: {{ results['x'][i]|round(1)|int|format(',') }}
-                </li>
-            {% endfor %}
-        </ul>
-        <h3>結果:</h3>
-        <pre>{{ results['message'] }}</pre>
+    <div class="results">
+        <h2>結果</h2>
+        <p>味方合計: {{ results.total_w | round(2) | int | string | replace(",", "") | int | format(",") }}</p>
+        <p>敵合計: {{ results.total_x | round(2) | int | string | replace(",", "") | int | format(",") }}</p>
+        <pre>{{ results.message }}</pre>
+    </div>
     {% endif %}
 
-    <div class="snow" id="snow-container"></div>
+    {% if saved_names %}
+    <div class="saved-results">
+        <h2>保存済みデータ</h2>
+        <ul>
+            {% for name in saved_names %}
+            <li>
+                {{ name }}
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="load_name" value="{{ name }}">
+                    <button type="submit" name="action" value="load">読み込み</button>
+                    <button type="submit" name="action" value="delete">削除</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
 
     <script>
-        function createSnowflake() {
-            const snowflake = document.createElement('div');
-            snowflake.className = 'snowflake';
-            snowflake.style.left = Math.random() * 100 + 'vw';
-            snowflake.style.animationDuration = (Math.random() * 3 + 2) + 's';
-            snowflake.style.fontSize = (Math.random() * 10 + 10) + 'px';
-            snowflake.textContent = '❄️';
-            document.getElementById('snow-container').appendChild(snowflake);
-            setTimeout(() => snowflake.remove(), 5000);
-        }
-
-        setInterval(createSnowflake, 200);
+        document.querySelectorAll('.comma-input').forEach(input => {
+            input.addEventListener('input', function () {
+                let cursorPos = this.selectionStart;
+                let rawValue = this.value.replace(/,/g, '');
+                if (!isNaN(rawValue) && rawValue !== '') {
+                    this.value = Number(rawValue).toLocaleString();
+                    this.setSelectionRange(cursorPos, cursorPos);
+                }
+            });
+        });
     </script>
 </body>
 </html>
