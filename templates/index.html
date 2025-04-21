@@ -64,10 +64,13 @@
         </div>
 
         <div class="section">
-            <h2>味方バフ（%）</h2>
-            {% for stat in ["攻撃", "防御", "殺傷", "体力"] %}
-                {{ stat }}:
-                <input type="number" name="u_{{ stat }}" value="{{ loaded_data.get('u_' ~ stat, '') }}"><br>
+            <h2>味方バフ（兵種ごと, %）</h2>
+            {% for unit in ["盾", "槍", "弓"] %}
+                <h3>{{ unit }}</h3>
+                {% for stat in ["攻撃", "防御", "殺傷", "体力"] %}
+                    {{ stat }}:
+                    <input type="number" name="u_buff_{{ unit }}_{{ stat }}" value="{{ loaded_data.get('u_buff_' ~ unit ~ '_' ~ stat, '') }}"><br>
+                {% endfor %}
             {% endfor %}
         </div>
 
@@ -83,13 +86,16 @@
         </div>
 
         <div class="section">
-            <h2>敵バフ（%）</h2>
-            {% for stat in ["攻撃", "防御", "殺傷", "体力"] %}
-                {{ stat }}:
-                <input type="number" name="v_{{ stat }}" value="{{ loaded_data.get('v_' ~ stat, '') }}"><br>
+            <h2>敵バフ（兵種ごと, %）</h2>
+            {% for unit in ["盾", "槍", "弓"] %}
+                <h3>{{ unit }}</h3>
+                {% for stat in ["攻撃", "防御", "殺傷", "体力"] %}
+                    {{ stat }}:
+                    <input type="number" name="v_buff_{{ unit }}_{{ stat }}" value="{{ loaded_data.get('v_buff_' ~ unit ~ '_' ~ stat, '') }}"><br>
+                {% endfor %}
             {% endfor %}
         </div>
-
+        
         <div class="section">
             <h2>保存・読み込み</h2>
             名前：
