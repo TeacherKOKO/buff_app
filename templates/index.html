@@ -2,95 +2,89 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>バフ計算ツール</title>
+    <title>バフ比較ツール</title>
     <style>
         body {
-            background: linear-gradient(to bottom, #cce0ff, #ffffff);
-            color: #333;
+            background: #001f3f;
+            color: white;
             font-family: sans-serif;
-            position: relative;
-            overflow: hidden;
+            overflow-x: hidden;
         }
-        .win { color: green; }
-        .lose { color: red; }
-        ul { list-style: none; padding: 0; }
-        li { margin-bottom: 5px; }
+        input[type=number] {
+            width: 120px;
+            text-align: right;
+        }
+        .win { color: #00FF99; }
+        .lose { color: #FF6666; }
         .snowflake {
-            position: absolute;
+            position: fixed;
             top: -10px;
             color: #fff;
-            font-size: 1.2em;
-            animation: fall linear infinite;
-        }
-        @keyframes fall {
-            to {
-                transform: translateY(100vh);
-            }
+            font-size: 1em;
+            user-select: none;
+            pointer-events: none;
         }
     </style>
+    <script src="{{ url_for('static', filename='snow.js') }}"></script>
 </head>
 <body>
-    <h1>❄️ バフ比較計算ツール ❄️</h1>
-
-    <form method="post">
+    <h1>❄ バフ比較計算ツール ❄</h1>
+    <p>Presented by ココ先生 form #2501</p>  
+    <form method="post" action="/">
         <h2>味方の兵数</h2>
-        <ul>
-            {% for i in range(9) %}
-            <li>{{ unit_labels[i] }}: <input type="number" name="u{{ i+1 }}" min="0"></li>
-            {% endfor %}
-        </ul>
+        {% for i in range(9) %}
+            <label>{{ unit_labels[i] }}: <input type="text" name="u{{ i+1 }}" value="{{ form_data.get('u' ~ i+1, '') if form_data else '' }}"></label><br>
+        {% endfor %}
 
         <h2>敵の兵数</h2>
-        <ul>
-            {% for i in range(9) %}
-            <li>{{ unit_labels[i] }}: <input type="number" name="v{{ i+1 }}" min="0"></li>
-            {% endfor %}
-        </ul>
+        {% for i in range(9) %}
+            <label>{{ unit_labels[i] }}: <input type="text" name="v{{ i+1 }}" value="{{ form_data.get('v' ~ i+1, '') if form_data else '' }}"></label><br>
+        {% endfor %}
 
-        <h2>味方バフ</h2>
-        <ul>
-            {% for i in range(12) %}
-            <li>{{ buff_labels[i] }}: <input type="number" step="0.1" name="{{ buff_vars[i] }}"></li>
-            {% endfor %}
-        </ul>
+        <h2>味方のバフ</h2>
+        {% for i in range(12) %}
+            <label>{{ buff_labels[i] }}: <input type="text" name="{{ buff_vars[i] }}" value="{{ form_data.get(buff_vars[i], '') if form_data else '' }}"></label><br>
+        {% endfor %}
 
-        <h2>敵バフ</h2>
-        <ul>
-            {% for i in range(12) %}
-            <li>{{ buff_labels[i] }}: <input type="number" step="0.1" name="{{ buff_vars[i+12] }}"></li>
-            {% endfor %}
-        </ul>
+        <h2>敵のバフ</h2>
+        {% for i in range(12, 24) %}
+            <label>{{ buff_labels[i-12] }}: <input type="text" name="{{ buff_vars[i] }}" value="{{ form_data.get(buff_vars[i], '') if form_data else '' }}"></label><br>
+        {% endfor %}
 
-        <button type="submit">計算！</button>
+        <button type="submit">計算</button>
     </form>
 
     {% if results %}
-        <h2>🔎 結果</h2>
-        <p>味方総計: <strong>{{ results.total_w | round(1) }}</strong></p>
-        <p>敵総計: <strong>{{ results.total_x | round(1) }}</strong></p>
-
+        <h2>結果</h2>
+        <p>味方合計: {{ results.total_w | round(1) | string | replace(',', ',') }}</p>
+        <p>敵合計: {{ results.total_x | round(1) | string | replace(',', ',') }}</p>
         <ul>
             {% for i in range(36) %}
-            <li class="{{ 'win' if results.w[i] > results.x[i] else 'lose' }}">
-                味方: {{ results.w[i]|round(1) }} vs 敵: {{ results.x[i]|round(1) }}
-            </li>
+                <li class="{{ 'win' if results.w[i] > results.x[i] else 'lose' }}">
+                    味方: {{ results.w[i] | round(1) | string | replace(',', ',') }} vs 敵: {{ results.x[i] | round(1) | string | replace(',', ',') }}
+                </li>
             {% endfor %}
         </ul>
-
         <pre>{{ results.message }}</pre>
+
+        <form method="post" action="/save">
+            <input type="text" name="save_name" placeholder="保存名を入力" required>
+            {% for k, v in form_data.items() %}
+                <input type="hidden" name="{{ k }}" value="{{ v }}">
+            {% endfor %}
+            <button type="submit">保存する</button>
+        </form>
     {% endif %}
 
-    <!-- 雪アニメーション -->
-    <script>
-        for (let i = 0; i < 50; i++) {
-            let snow = document.createElement("div");
-            snow.className = "snowflake";
-            snow.style.left = Math.random() * 100 + "vw";
-            snow.style.animationDuration = 5 + Math.random() * 5 + "s";
-            snow.style.opacity = Math.random();
-            snow.textContent = "❄️";
-            document.body.appendChild(snow);
-        }
-    </script>
+    <h2>保存データ</h2>
+    <ul>
+        {% for name in saves %}
+            <li>
+                {{ name }} |
+                <a href="/load/{{ name }}">読み込み</a> |
+                <a href="/delete/{{ name }}">削除</a>
+            </li>
+        {% endfor %}
+    </ul>
 </body>
 </html>

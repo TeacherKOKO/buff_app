@@ -1,125 +1,10 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template, request, redirect, url_for
+import json
+import os
 from collections import Counter
 
 app = Flask(__name__)
-
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>バフ計算ツール - 冬テーマ</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            line-height: 1.6;
-            padding: 20px;
-            background: linear-gradient(#e0f7ff, #a0cbe8);
-            position: relative;
-            overflow-x: hidden;
-        }
-        h1, h2 { color: #003366; }
-        ul { list-style: none; padding: 0; }
-        li { margin-bottom: 5px; }
-        .win { color: green; font-weight: bold; }
-        .lose { color: red; font-weight: bold; }
-        pre {
-            white-space: pre-wrap;
-            background: #ffffffdd;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        .scroll-box {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            background: #ffffffee;
-            padding: 10px;
-            border-radius: 8px;
-        }
-
-        .snowflake {
-            position: fixed;
-            top: -10px;
-            color: #fff;
-            font-size: 1.5em;
-            pointer-events: none;
-            animation: fall linear infinite;
-        }
-
-        @keyframes fall {
-            0% { transform: translateY(-10px); }
-            100% { transform: translateY(100vh); }
-        }
-    </style>
-</head>
-<body>
-    <h1>❄️ バフ比較計算ツール ❄️</h1>
-
-    <form method="post">
-        <h2>味方の兵の数</h2>
-        <ul>
-            {% for i in range(9) %}
-            <li>{{ unit_labels[i] }}: <input type="number" name="u{{i+1}}" min="0"></li>
-            {% endfor %}
-        </ul>
-
-        <h2>敵の兵の数</h2>
-        <ul>
-            {% for i in range(9) %}
-            <li>{{ unit_labels[i] }}: <input type="number" name="v{{i+1}}" min="0"></li>
-            {% endfor %}
-        </ul>
-
-        <h2>味方のバフ</h2>
-        <ul>
-            {% for i in range(12) %}
-            <li>{{ buff_labels[i] }}: <input type="number" name="{{ buff_vars[i] }}" step="0.1" min="0"></li>
-            {% endfor %}
-        </ul>
-
-        <h2>敵のバフ</h2>
-        <ul>
-            {% for i in range(12, 24) %}
-            <li>{{ buff_labels[i-12] }}: <input type="number" name="{{ buff_vars[i] }}" step="0.1" min="0"></li>
-            {% endfor %}
-        </ul>
-
-        <button type="submit">計算</button>
-    </form>
-
-    {% if results %}
-        <h2>結果表示</h2>
-        <div class="scroll-box">
-            <ul>
-            {% for i in range(36) %}
-                <li class="{{ 'win' if results['w'][i] > results['x'][i] else 'lose' }}">
-                    味方: {{ results['w'][i] | round(1) }} vs 敵: {{ results['x'][i] | round(1) }}
-                </li>
-            {% endfor %}
-            </ul>
-        </div>
-        <h3>判定:</h3>
-        <pre>{{ results['message'] }}</pre>
-    {% endif %}
-
-    <!-- 雪アニメーション -->
-    <script>
-        const snowContainer = document.createDocumentFragment();
-        for (let i = 0; i < 50; i++) {
-            const snowflake = document.createElement("div");
-            snowflake.className = "snowflake";
-            snowflake.style.left = Math.random() * 100 + "vw";
-            snowflake.style.animationDuration = 5 + Math.random() * 5 + "s";
-            snowflake.style.opacity = Math.random();
-            snowflake.innerHTML = "❄️";
-            snowContainer.appendChild(snowflake);
-        }
-        document.body.appendChild(snowContainer);
-    </script>
-</body>
-</html>
-"""
+SAVE_FILE = 'saved_data.json'
 
 unit_labels = [
     "盾兵T8", "盾兵T9", "盾兵T10",
@@ -128,9 +13,9 @@ unit_labels = [
 ]
 
 buff_labels = [
-    "盾兵体力", "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力",
-    "槍兵体力", "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力",
-    "弓兵体力", "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力"
+    "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力", "盾兵体力",
+    "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力", "槍兵体力",
+    "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力", "弓兵体力"
 ]
 
 buff_vars = [
@@ -138,80 +23,119 @@ buff_vars = [
     'a5', 'a6', 'a7', 'a8', 'b5', 'b6', 'b7', 'b8', 'c5', 'c6', 'c7', 'c8'
 ]
 
-def extract_float(request, key):
+def extract_number(val):
     try:
-        val = float(request.form.get(key, 0))
-        return max(0, val)
+        return int(str(val).replace(',', '').strip())
     except:
         return 0
 
-def extract_int(request, key):
+def extract_float(val):
     try:
-        val = int(request.form.get(key, 0))
-        return max(0, val)
+        return float(str(val).replace(',', '').strip())
     except:
-        return 0
+        return 0.0
 
-def make_buffs(base, unit_counts):
-    buffs = []
-    for i in range(3):
-        for j in range(4):
-            index = i * 4 + j
-            buff_value = base[j]
-            unit_count = unit_counts[i]
-            result = (buff_value / 100) * unit_count
-            buffs.append(result)
-    return buffs
+def make_buffs(base):
+    return [
+        base[0]*11/100, base[1]*8/100, base[2]*8/100, base[3]*11/100,
+        base[0]*14/100, base[1]*9/100, base[2]*9/100, base[3]*14/100,
+        base[0]*15/100, base[1]*10/100, base[2]*10/100, base[3]*15/100
+    ]
 
-@app.route("/", methods=["GET", "POST"])
+@app.route('/', methods=['GET', 'POST'])
 def index():
     results = None
-    if request.method == "POST":
-        u = [extract_int(request, f'u{i+1}') for i in range(9)]
-        v = [extract_int(request, f'v{i+1}') for i in range(9)]
-        buffs = [extract_float(request, key) for key in buff_vars]
+    saves = load_saves()
 
-        a = buffs[0:4]
-        b = buffs[4:8]
-        c = buffs[8:12]
-        d = buffs[12:16]
-        e = buffs[16:20]
-        f_ = buffs[20:24]
+    if request.method == 'POST':
+        u = [extract_number(request.form.get(f'u{i+1}')) for i in range(9)]
+        v = [extract_number(request.form.get(f'v{i+1}')) for i in range(9)]
+        buffs = [extract_float(request.form.get(k)) for k in buff_vars]
 
-        a_buff = make_buffs(a, u[0:3])
-        b_buff = make_buffs(b, u[3:6])
-        c_buff = make_buffs(c, u[6:9])
-        d_buff = make_buffs(d, v[0:3])
-        e_buff = make_buffs(e, v[3:6])
-        f_buff = make_buffs(f_, v[6:9])
+        a, b, c = buffs[:4], buffs[4:8], buffs[8:12]
+        d, e, f_ = buffs[12:16], buffs[16:20], buffs[20:24]
 
-        w = a_buff + b_buff + c_buff
-        x = d_buff + e_buff + f_buff
+        a_buff = make_buffs(a)
+        b_buff = make_buffs(b)
+        c_buff = make_buffs(c)
+        d_buff = make_buffs(d)
+        e_buff = make_buffs(e)
+        f_buff = make_buffs(f_)
+
+        w, x = [], []
+        for i in range(3):
+            for j in range(4):
+                w.append(u[i] * a_buff[i*4+j])
+                x.append(v[i] * d_buff[i*4+j])
+        for i in range(3, 6):
+            for j in range(4):
+                w.append(u[i] * b_buff[(i-3)*4+j])
+                x.append(v[i] * e_buff[(i-3)*4+j])
+        for i in range(6, 9):
+            for j in range(4):
+                w.append(u[i] * c_buff[(i-6)*4+j])
+                x.append(v[i] * f_buff[(i-6)*4+j])
 
         total_w = sum(w)
         total_x = sum(x)
 
         if total_w > total_x:
-            message = "問題なし！素晴らしい育成だ！"
+            message = "✅ 問題なし！素晴らしい育成だ！"
         else:
-            buff_areas = (
-                ["盾兵体力", "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力"] * 3 +
-                ["槍兵体力", "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力"] * 3 +
-                ["弓兵体力", "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力"] * 3
-            )
-            weak_buffs = [buff_areas[i] for i in range(36) if w[i] < x[i]]
-            counts = Counter(weak_buffs)
-            message = "敗北しています。\n以下のバフを強化すると勝てるかも：\n"
-            for key, val in counts.most_common():
-                message += f"{key}（{val}回）\n"
+            areas = buff_labels * 3
+            weak = [areas[i] for i in range(36) if w[i] < x[i]]
+            counts = Counter(weak)
+            message = "❌ 敗北しています。\n強化が必要なバフ：\n"
+            message += '\n'.join(f"{k}（{v}回）" for k, v in counts.most_common())
 
-        results = {'w': w, 'x': x, 'message': message}
+        results = {'w': w, 'x': x, 'message': message, 'total_w': total_w, 'total_x': total_x}
 
-    return render_template_string(HTML_TEMPLATE,
-                                  unit_labels=unit_labels,
-                                  buff_labels=buff_labels,
-                                  buff_vars=buff_vars,
-                                  results=results)
+    return render_template("index.html",
+        unit_labels=unit_labels,
+        buff_labels=buff_labels,
+        buff_vars=buff_vars,
+        results=results,
+        saves=saves
+    )
 
-if __name__ == '__main__':
+@app.route('/save', methods=['POST'])
+def save():
+    name = request.form.get("save_name", "").strip()
+    if name:
+        data = dict(request.form)
+        saves = load_saves()
+        saves[name] = data
+        with open(SAVE_FILE, "w", encoding="utf-8") as f:
+            json.dump(saves, f, ensure_ascii=False, indent=2)
+    return redirect(url_for('index'))
+
+@app.route('/load/<name>')
+def load(name):
+    saves = load_saves()
+    data = saves.get(name, {})
+    return render_template("index.html",
+        unit_labels=unit_labels,
+        buff_labels=buff_labels,
+        buff_vars=buff_vars,
+        results=None,
+        form_data=data,
+        saves=saves
+    )
+
+@app.route('/delete/<name>')
+def delete(name):
+    saves = load_saves()
+    if name in saves:
+        del saves[name]
+        with open(SAVE_FILE, "w", encoding="utf-8") as f:
+            json.dump(saves, f, ensure_ascii=False, indent=2)
+    return redirect(url_for('index'))
+
+def load_saves():
+    if not os.path.exists(SAVE_FILE):
+        return {}
+    with open(SAVE_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+if __name__ == "__main__":
     app.run(debug=True)

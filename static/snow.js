@@ -1,15 +1,12 @@
-function createSnowflake() {
-    const snowflake = document.createElement('div');
-    snowflake.className = 'snowflake';
-    snowflake.textContent = '❆';
-    snowflake.style.left = Math.random() * window.innerWidth + 'px';
-    snowflake.style.animationDuration = (3 + Math.random() * 5) + 's';  // 3〜8秒のランダム時間
-    snowflake.style.fontSize = (10 + Math.random() * 20) + 'px';  // サイズのランダム化
-    document.body.appendChild(snowflake);
-
-    setTimeout(() => {
-        snowflake.remove();  // 5秒後に雪の結晶を削除
-    }, 5000);  // 5秒後に削除することでDOMの要素数を減らす
-}
-
-setInterval(createSnowflake, 200);  // 200msごとに雪を生成
+document.addEventListener("DOMContentLoaded", function () {
+    for (let i = 0; i < 50; i++) {
+        let snow = document.createElement("div");
+        snow.className = "snowflake";
+        snow.textContent = "❄";
+        snow.style.left = Math.random() * 100 + "vw";
+        snow.style.animationDuration = 3 + Math.random() * 5 + "s";
+        snow.style.fontSize = (Math.random() * 10 + 10) + "px";
+        snow.style.opacity = Math.random();
+        document.body.appendChild(snow);
+    }
+});
