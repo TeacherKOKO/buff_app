@@ -1,134 +1,102 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 import json
 import os
 
 app = Flask(__name__)
 
-unit_labels = ["盾", "槍", "弓", "騎", "器"]
-buff_labels = ["攻撃", "防御", "殺傷", "体力"]
-
-# バフ変数の並び順：盾攻撃→盾防御→…→器体力（味方12）→盾攻撃→…→器体力（敵12）
-buff_vars = [
-    'wa', 'wd', 'wk', 'wh',  # 味方：盾
-    'sa', 'sd', 'sk', 'sh',  # 味方：槍
-    'ha', 'hd', 'hk', 'hh',  # 味方：弓
-    'ea', 'ed', 'ek', 'eh',  # 味方：騎
-    'fa', 'fd', 'fk', 'fh',  # 味方：器
-    'ba', 'bd', 'bk', 'bh',  # 敵：盾
-    'na', 'nd', 'nk', 'nh',  # 敵：槍
-    'ma', 'md', 'mk', 'mh',  # 敵：弓
-    'la', 'ld', 'lk', 'lh',  # 敵：騎
-    'ka', 'kd', 'kk', 'kh'   # 敵：器
-]
+# ステータス定義
+base_stats = {
+    "T8": {
+        "盾": {"攻撃": 8, "防御": 11, "殺傷": 8, "体力": 13},
+        "槍": {"攻撃": 11, "防御": 9, "殺傷": 12, "体力": 9},
+        "弓": {"攻撃": 12, "防御": 8, "殺傷": 13, "体力": 8}
+    },
+    "T9": {
+        "盾": {"攻撃": 9, "防御": 12, "殺傷": 9, "体力": 14},
+        "槍": {"攻撃": 12, "防御": 10, "殺傷": 13, "体力": 10},
+        "弓": {"攻撃": 13, "防御": 9, "殺傷": 14, "体力": 9}
+    },
+    "T10": {
+        "盾": {"攻撃": 10, "防御": 13, "殺傷": 10, "体力": 14},
+        "槍": {"攻撃": 13, "防御": 11, "殺傷": 14, "体力": 11},
+        "弓": {"攻撃": 14, "防御": 10, "殺傷": 15, "体力": 10}
+    }
+}
 
 DATA_FILE = "saved_results.json"
 
+def calc_total(form, is_enemy=False):
+    prefix = 'v' if is_enemy else 'u'
+    total = 0
+    buffs = {
+        "攻撃": float(form.get(f"{prefix}_攻撃", 0) or 0),
+        "防御": float(form.get(f"{prefix}_防御", 0) or 0),
+        "殺傷": float(form.get(f"{prefix}_殺傷", 0) or 0),
+        "体力": float(form.get(f"{prefix}_体力", 0) or 0),
+    }
+
+    for tier in ["T8", "T9", "T10"]:
+        for unit in ["盾", "槍", "弓"]:
+            key = f"{prefix}_{tier}_{unit}"
+            num = int(form.get(key, "0").replace(",", "") or 0)
+            for stat in ["攻撃", "防御", "殺傷", "体力"]:
+                base = base_stats[tier][unit][stat]
+                buffed = (buffs[stat] / 100) * base
+                total += num * buffed
+    return total
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    loaded_data = {}
     results = None
+    loaded_data = {}
     saved_names = []
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            saved_names = list(json.load(f).keys())
 
     if request.method == "POST":
         action = request.form.get("action")
-        save_name = request.form.get("save_name", "").strip()
-
-        # フォームデータを収集（数値変換も）
-        form_data = {}
-        for i in range(1, 6):
-            form_data[f"u{i}"] = request.form.get(f"u{i}", "").replace(",", "")
-            form_data[f"v{i}"] = request.form.get(f"v{i}", "").replace(",", "")
-        for var in buff_vars:
-            form_data[var] = request.form.get(var, "").replace(",", "")
-
-        if action == "save" and save_name:
-            # 保存処理
-            if os.path.exists(DATA_FILE):
-                with open(DATA_FILE, "r", encoding="utf-8") as f:
-                    all_data = json.load(f)
-            else:
-                all_data = {}
-
-            all_data[save_name] = form_data
-
-            with open(DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(all_data, f, ensure_ascii=False, indent=2)
-
+        if action == "save":
+            name = request.form.get("save_name")
+            if name:
+                if os.path.exists(DATA_FILE):
+                    with open(DATA_FILE, "r", encoding="utf-8") as f:
+                        all_data = json.load(f)
+                else:
+                    all_data = {}
+                all_data[name] = request.form.to_dict()
+                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                    json.dump(all_data, f, ensure_ascii=False, indent=2)
+                saved_names = list(all_data.keys())
         elif action == "load":
             load_name = request.form.get("load_name")
             if load_name and os.path.exists(DATA_FILE):
                 with open(DATA_FILE, "r", encoding="utf-8") as f:
                     all_data = json.load(f)
                 loaded_data = all_data.get(load_name, {})
-
         elif action == "delete":
-            delete_name = request.form.get("load_name")
-            if delete_name and os.path.exists(DATA_FILE):
+            del_name = request.form.get("load_name")
+            if del_name and os.path.exists(DATA_FILE):
                 with open(DATA_FILE, "r", encoding="utf-8") as f:
                     all_data = json.load(f)
-                if delete_name in all_data:
-                    del all_data[delete_name]
-                    with open(DATA_FILE, "w", encoding="utf-8") as f:
-                        json.dump(all_data, f, ensure_ascii=False, indent=2)
-
+                all_data.pop(del_name, None)
+                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                    json.dump(all_data, f, ensure_ascii=False, indent=2)
+                saved_names = list(all_data.keys())
         else:
-            # 計算処理
-            try:
-                u_vals = [int(request.form.get(f"u{i}", "0").replace(",", "") or 0) for i in range(1, 6)]
-                v_vals = [int(request.form.get(f"v{i}", "0").replace(",", "") or 0) for i in range(1, 6)]
-                w_buffs = [float(request.form.get(buff_vars[i], "0").replace(",", "") or 0) for i in range(20)]  # 味方バフ
-                e_buffs = [float(request.form.get(buff_vars[i], "0").replace(",", "") or 0) for i in range(20, 40)]  # 敵バフ
+            total_w = calc_total(request.form, is_enemy=False)
+            total_x = calc_total(request.form, is_enemy=True)
+            win_message = "勝利！" if total_w > total_x else "敗北…"
+            results = {
+                "total_w": total_w,
+                "total_x": total_x,
+                "message": win_message
+            }
 
-                # バフ後ステータスを計算（元値 × (1 + バフ合計 / 100)）
-                def calc_total(units, buffs):
-                    total = 0
-                    for i in range(5):  # 盾～器
-                        attack = buffs[i * 4]
-                        defense = buffs[i * 4 + 1]
-                        kill = buffs[i * 4 + 2]
-                        hp = buffs[i * 4 + 3]
-                        unit_val = units[i]
-                        buff_rate = (attack + defense + kill + hp) / 100
-                        total += unit_val * (1 + buff_rate)
-                    return total
-
-                total_w = calc_total(u_vals, w_buffs)
-                total_x = calc_total(v_vals, e_buffs)
-
-                if total_w > total_x:
-                    message = "✅ 勝利！味方の方が強力です。"
-                elif total_w < total_x:
-                    message = "❌ 敗北…敵の方が強力です。"
-                else:
-                    message = "⚔️ 引き分けです。"
-
-                results = {
-                    "total_w": total_w,
-                    "total_x": total_x,
-                    "message": message
-                }
-
-            except Exception as e:
-                results = {"total_w": 0, "total_x": 0, "message": f"エラーが発生しました: {str(e)}"}
-
-    # 保存名一覧の取得
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            all_data = json.load(f)
-        saved_names = list(all_data.keys())
-
-    return render_template(
-        "index.html",
-        unit_labels=unit_labels,
-        buff_labels=buff_labels,
-        buff_vars=buff_vars,
-        loaded_data=loaded_data,
-        results=results,
-        saved_names=saved_names,
-        request=request
-    )
-
+    return render_template("index.html",
+                           loaded_data=loaded_data,
+                           results=results,
+                           saved_names=saved_names)
 
 if __name__ == "__main__":
     app.run(debug=True)

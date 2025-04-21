@@ -2,116 +2,149 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>バフ比較計算機</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="{{ url_for('static', filename='snow.js') }}"></script>
+    <title>バフ計算アプリ</title>
+    <style>
+        body {
+            background: linear-gradient(#1e3c72, #2a5298); /* 冬のグラデーション */
+            color: white;
+            font-family: sans-serif;
+            padding: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        input[type="number"], input[type="text"] {
+            width: 80px;
+            text-align: right;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            color: white;
+            font-size: 1em;
+            user-select: none;
+            pointer-events: none;
+            animation: fall linear infinite;
+            opacity: 0.8;
+        }
+
+    @keyframes fall {
+    0% {
+        transform: translateX(0) translateY(0) rotate(0deg);
+        opacity: 1;
+     }
+  50% {
+        transform: translateX(50px) translateY(50vh) rotate(180deg);
+    }
+    100% {
+        transform: translateX(-50px) translateY(100vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+    </style>
 </head>
 <body>
-    <div class="snow"></div>
-    <h1>❄ White Out Survival バフ計算機 ❄</h1>
-    <p>Presented by ココ先生 form #2501</p>  
-    
-    <form method="POST">
-        <div class="unit-section">
-            <h2>味方ユニット</h2>
-            <ul>
-                {% for label in unit_labels %}
-                    <li>
-                        <label>{{ label }}</label>
-                        <input type="text" name="u{{ loop.index }}" class="comma-input"
-                               value="{{ request.form.get('u' ~ loop.index, loaded_data.get('u' ~ loop.index, '')) }}">
-                    </li>
-                {% endfor %}
-            </ul>
+    <h1>バフ計算アプリ</h1>
 
-            <h2>味方バフ</h2>
-            <ul>
-                {% for i in range(0, 20, 4) %}
-                    <li><strong>{{ unit_labels[i // 4] }}</strong></li>
-                    {% for j in range(4) %}
-                        <li>
-                            <label>{{ buff_labels[j] }}</label>
-                            <input type="text" name="{{ buff_vars[i + j] }}" class="comma-input"
-                                   value="{{ request.form.get(buff_vars[i + j], loaded_data.get(buff_vars[i + j], '')) }}">
-                        </li>
-                    {% endfor %}
+    <form method="post">
+        <div class="section">
+            <h2>味方の兵数</h2>
+            {% for tier in ["T8", "T9", "T10"] %}
+                <h3>{{ tier }}</h3>
+                {% for unit in ["盾", "槍", "弓"] %}
+                    {{ unit }}:
+                    <input type="number" name="u_{{ tier }}_{{ unit }}" value="{{ loaded_data.get('u_' ~ tier ~ '_' ~ unit, '') }}"><br>
                 {% endfor %}
-            </ul>
+            {% endfor %}
         </div>
 
-        <div class="unit-section">
-            <h2>敵ユニット</h2>
-            <ul>
-                {% for label in unit_labels %}
-                    <li>
-                        <label>{{ label }}</label>
-                        <input type="text" name="v{{ loop.index }}" class="comma-input"
-                               value="{{ request.form.get('v' ~ loop.index, loaded_data.get('v' ~ loop.index, '')) }}">
-                    </li>
-                {% endfor %}
-            </ul>
-
-            <h2>敵バフ</h2>
-            <ul>
-                {% for i in range(20, 40, 4) %}
-                    <li><strong>{{ unit_labels[(i - 20) // 4] }}</strong></li>
-                    {% for j in range(4) %}
-                        <li>
-                            <label>{{ buff_labels[j] }}</label>
-                            <input type="text" name="{{ buff_vars[i + j] }}" class="comma-input"
-                                   value="{{ request.form.get(buff_vars[i + j], loaded_data.get(buff_vars[i + j], '')) }}">
-                        </li>
-                    {% endfor %}
-                {% endfor %}
-            </ul>
+        <div class="section">
+            <h2>味方バフ（%）</h2>
+            {% for stat in ["攻撃", "防御", "殺傷", "体力"] %}
+                {{ stat }}:
+                <input type="number" name="u_{{ stat }}" value="{{ loaded_data.get('u_' ~ stat, '') }}"><br>
+            {% endfor %}
         </div>
 
-        <div class="form-actions">
-            <input type="submit" value="計算">
-            <input type="text" name="save_name" placeholder="保存名（任意）">
+        <div class="section">
+            <h2>敵の兵数</h2>
+            {% for tier in ["T8", "T9", "T10"] %}
+                <h3>{{ tier }}</h3>
+                {% for unit in ["盾", "槍", "弓"] %}
+                    {{ unit }}:
+                    <input type="number" name="v_{{ tier }}_{{ unit }}" value="{{ loaded_data.get('v_' ~ tier ~ '_' ~ unit, '') }}"><br>
+                {% endfor %}
+            {% endfor %}
+        </div>
+
+        <div class="section">
+            <h2>敵バフ（%）</h2>
+            {% for stat in ["攻撃", "防御", "殺傷", "体力"] %}
+                {{ stat }}:
+                <input type="number" name="v_{{ stat }}" value="{{ loaded_data.get('v_' ~ stat, '') }}"><br>
+            {% endfor %}
+        </div>
+
+        <div class="section">
+            <h2>保存・読み込み</h2>
+            名前：
+            <input type="text" name="save_name" placeholder="例：戦闘パターンA"><br>
             <button type="submit" name="action" value="save">保存</button>
+            <select name="load_name">
+                {% for name in saved_names %}
+                    <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" name="action" value="load">読み込み</button>
+            <button type="submit" name="action" value="delete">削除</button>
+        </div>
+
+        <div class="section">
+            <button type="submit">計算する</button>
         </div>
     </form>
 
     {% if results %}
-    <div class="results">
+    <div class="section">
         <h2>結果</h2>
-        <p>味方合計: {{ results.total_w | round(2) | int | string | replace(",", "") | int | format(",") }}</p>
-        <p>敵合計: {{ results.total_x | round(2) | int | string | replace(",", "") | int | format(",") }}</p>
-        <pre>{{ results.message }}</pre>
-    </div>
-    {% endif %}
-
-    {% if saved_names %}
-    <div class="saved-results">
-        <h2>保存済みデータ</h2>
-        <ul>
-            {% for name in saved_names %}
-            <li>
-                {{ name }}
-                <form method="POST" style="display:inline;">
-                    <input type="hidden" name="load_name" value="{{ name }}">
-                    <button type="submit" name="action" value="load">読み込み</button>
-                    <button type="submit" name="action" value="delete">削除</button>
-                </form>
-            </li>
-            {% endfor %}
-        </ul>
+        <p>味方の総戦力: {{ results.total_w | round(2) }}</p>
+        <p>敵の総戦力: {{ results.total_x | round(2) }}</p>
+        <h3>{{ results.message }}</h3>
     </div>
     {% endif %}
 
     <script>
-        document.querySelectorAll('.comma-input').forEach(input => {
-            input.addEventListener('input', function () {
-                let cursorPos = this.selectionStart;
-                let rawValue = this.value.replace(/,/g, '');
-                if (!isNaN(rawValue) && rawValue !== '') {
-                    this.value = Number(rawValue).toLocaleString();
-                    this.setSelectionRange(cursorPos, cursorPos);
-                }
-            });
-        });
-    </script>
+        function createSnowflake() {
+            const snowflake = document.createElement("div");
+            snowflake.classList.add("snowflake");
+            snowflake.style.left = Math.random() * window.innerWidth + "px";
+            snowflake.style.animationDuration = (5 + Math.random() * 5) + "s";
+            snowflake.style.fontSize = (10 + Math.random() * 20) + "px";
+            snowflake.textContent = "❄";
+            document.body.appendChild(snowflake);
+    
+            // 落下終了後に積雪として ground に追加
+            setTimeout(() => {
+                const ground = document.getElementById("ground");
+                const grounded = document.createElement("div");
+                grounded.classList.add("grounded-snow");
+                grounded.style.left = snowflake.style.left;
+                grounded.textContent = "❄";
+                ground.appendChild(grounded);
+    
+                snowflake.remove();
+    
+                // 積雪も一定時間後に消える
+                setTimeout(() => grounded.remove(), 6000);
+            }, 5000 + Math.random() * 6000); // アニメーション完了時間
+        }
+    
+        setInterval(createSnowflake, 100);
+    </script>    
 </body>
 </html>
