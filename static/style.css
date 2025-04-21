@@ -1,77 +1,24 @@
 body {
-    font-family: "Arial", sans-serif;
-    background: linear-gradient(to bottom, #001f3f, #003366);
+    font-family: "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    background: linear-gradient(#001f3f, #003366);
     color: #fff;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
-}
-
-h1 {
-    text-align: center;
-    color: #cce6ff;
-}
-
-form {
-    max-width: 800px;
-    margin: 0 auto;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 20px;
-    border-radius: 12px;
-}
-
-.soldier {
-    margin-bottom: 15px;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 10px;
+    padding: 1em;
 }
 
 input {
-    margin: 5px;
-    padding: 6px;
-    border-radius: 6px;
-    border: none;
+    width: 120px;
+    text-align: right;
 }
 
-button {
-    background-color: #4fc3f7;
-    color: #000;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    margin: 5px;
+.win {
+    color: #00ff99;
 }
-
-button:hover {
-    background-color: #81d4fa;
-}
-
-.snowflake {
-    position: absolute;
-    top: -10px;
-    color: #fff;
-    font-size: 1em;
-    animation: fall linear infinite, drift 3s ease-in-out infinite;
-    user-select: none;
+.lose {
+    color: #ff6666;
 }
 
 @keyframes fall {
-    0% {
-        transform: translateY(0);
-        opacity: 1;
-    }
-    100% {
+    to {
         transform: translateY(100vh);
-        opacity: 0;
-    }
-}
-
-@keyframes drift {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        transform: translateX(15px);  /* 少し動かす */
     }
 }

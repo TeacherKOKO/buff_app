@@ -2,89 +2,151 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>バフ比較ツール</title>
+    <title>バフ計算ツール</title>
     <style>
         body {
-            background: #001f3f;
-            color: white;
-            font-family: sans-serif;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(to bottom, #a2cfff, #ffffff);
+            color: #333;
+            padding: 20px;
             overflow-x: hidden;
         }
-        input[type=number] {
-            width: 120px;
+
+        h2, h3 {
+            margin-top: 30px;
+            color: #004466;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        input[type="number"] {
+            width: 150px;
+            padding: 4px;
             text-align: right;
         }
-        .win { color: #00FF99; }
-        .lose { color: #FF6666; }
-        .snowflake {
+
+        button {
+            padding: 10px 20px;
+            margin-top: 20px;
+            background-color: #007acc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .win { color: green; }
+        .lose { color: red; }
+
+        pre {
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            padding: 10px;
+            white-space: pre-wrap;
+        }
+
+        /* 雪アニメーション */
+        .snow {
             position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+            width: 100%;
+            height: 100%;
+        }
+
+        .snowflake {
+            position: absolute;
             top: -10px;
             color: #fff;
-            font-size: 1em;
             user-select: none;
-            pointer-events: none;
+            font-size: 1em;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
         }
     </style>
-    <script src="{{ url_for('static', filename='snow.js') }}"></script>
 </head>
 <body>
-    <h1>❄ バフ比較計算ツール ❄</h1>
+    <h1>❄ White Out Survival バフ計算機 ❄</h1>
     <p>Presented by ココ先生 form #2501</p>  
-    <form method="post" action="/">
-        <h2>味方の兵数</h2>
-        {% for i in range(9) %}
-            <label>{{ unit_labels[i] }}: <input type="text" name="u{{ i+1 }}" value="{{ form_data.get('u' ~ i+1, '') if form_data else '' }}"></label><br>
-        {% endfor %}
+    <form method="post">
+        <h2>味方の兵の数</h2>
+        <ul>
+            {% for i in range(1, 10) %}
+            <li>{{ unit_labels[i-1] }}: <input type="text" name="u{{i}}" inputmode="numeric" pattern="\d+"></li>
+            {% endfor %}
+        </ul>
 
-        <h2>敵の兵数</h2>
-        {% for i in range(9) %}
-            <label>{{ unit_labels[i] }}: <input type="text" name="v{{ i+1 }}" value="{{ form_data.get('v' ~ i+1, '') if form_data else '' }}"></label><br>
-        {% endfor %}
+        <h2>敵の兵の数</h2>
+        <ul>
+            {% for i in range(1, 10) %}
+            <li>{{ unit_labels[i-1] }}: <input type="text" name="v{{i}}" inputmode="numeric" pattern="\d+"></li>
+            {% endfor %}
+        </ul>
 
         <h2>味方のバフ</h2>
-        {% for i in range(12) %}
-            <label>{{ buff_labels[i] }}: <input type="text" name="{{ buff_vars[i] }}" value="{{ form_data.get(buff_vars[i], '') if form_data else '' }}"></label><br>
-        {% endfor %}
+        <ul>
+            {% for i, label in enumerate(buff_labels[:12]) %}
+            <li>{{ label }}: <input type="text" name="{{ buff_vars[i] }}" inputmode="decimal" pattern="\d+(\.\d+)?"></li>
+            {% endfor %}
+        </ul>
 
         <h2>敵のバフ</h2>
-        {% for i in range(12, 24) %}
-            <label>{{ buff_labels[i-12] }}: <input type="text" name="{{ buff_vars[i] }}" value="{{ form_data.get(buff_vars[i], '') if form_data else '' }}"></label><br>
-        {% endfor %}
+        <ul>
+            {% for i, label in enumerate(buff_labels[:12]) %}
+            <li>{{ label }}: <input type="text" name="{{ buff_vars[i+12] }}" inputmode="decimal" pattern="\d+(\.\d+)?"></li>
+            {% endfor %}
+        </ul>
 
         <button type="submit">計算</button>
     </form>
 
     {% if results %}
-        <h2>結果</h2>
-        <p>味方合計: {{ results.total_w | round(1) | string | replace(',', ',') }}</p>
-        <p>敵合計: {{ results.total_x | round(1) | string | replace(',', ',') }}</p>
+        <h2>計算結果</h2>
         <ul>
             {% for i in range(36) %}
-                <li class="{{ 'win' if results.w[i] > results.x[i] else 'lose' }}">
-                    味方: {{ results.w[i] | round(1) | string | replace(',', ',') }} vs 敵: {{ results.x[i] | round(1) | string | replace(',', ',') }}
+                <li class="{{ 'win' if results['w'][i] > results['x'][i] else 'lose' }}">
+                    味方: {{ results['w'][i]|round(1)|int|format(',') }} vs 敵: {{ results['x'][i]|round(1)|int|format(',') }}
                 </li>
             {% endfor %}
         </ul>
-        <pre>{{ results.message }}</pre>
-
-        <form method="post" action="/save">
-            <input type="text" name="save_name" placeholder="保存名を入力" required>
-            {% for k, v in form_data.items() %}
-                <input type="hidden" name="{{ k }}" value="{{ v }}">
-            {% endfor %}
-            <button type="submit">保存する</button>
-        </form>
+        <h3>結果:</h3>
+        <pre>{{ results['message'] }}</pre>
     {% endif %}
 
-    <h2>保存データ</h2>
-    <ul>
-        {% for name in saves %}
-            <li>
-                {{ name }} |
-                <a href="/load/{{ name }}">読み込み</a> |
-                <a href="/delete/{{ name }}">削除</a>
-            </li>
-        {% endfor %}
-    </ul>
+    <div class="snow" id="snow-container"></div>
+
+    <script>
+        function createSnowflake() {
+            const snowflake = document.createElement('div');
+            snowflake.className = 'snowflake';
+            snowflake.style.left = Math.random() * 100 + 'vw';
+            snowflake.style.animationDuration = (Math.random() * 3 + 2) + 's';
+            snowflake.style.fontSize = (Math.random() * 10 + 10) + 'px';
+            snowflake.textContent = '❄️';
+            document.getElementById('snow-container').appendChild(snowflake);
+            setTimeout(() => snowflake.remove(), 5000);
+        }
+
+        setInterval(createSnowflake, 200);
+    </script>
 </body>
 </html>

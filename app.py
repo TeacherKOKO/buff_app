@@ -4,7 +4,8 @@ import os
 from collections import Counter
 
 app = Flask(__name__)
-SAVE_FILE = 'saved_data.json'
+
+SAVE_FILE = "saved_results.json"
 
 unit_labels = [
     "盾兵T8", "盾兵T9", "盾兵T10",
@@ -23,119 +24,130 @@ buff_vars = [
     'a5', 'a6', 'a7', 'a8', 'b5', 'b6', 'b7', 'b8', 'c5', 'c6', 'c7', 'c8'
 ]
 
-def extract_number(val):
+def extract_float(request, key):
+    val = request.form.get(key, "").replace(",", "")
     try:
-        return int(str(val).replace(',', '').strip())
-    except:
-        return 0
-
-def extract_float(val):
-    try:
-        return float(str(val).replace(',', '').strip())
+        return float(val)
     except:
         return 0.0
 
+def extract_int(request, key):
+    val = request.form.get(key, "").replace(",", "")
+    try:
+        return int(val)
+    except:
+        return 0
+
 def make_buffs(base):
     return [
-        base[0]*11/100, base[1]*8/100, base[2]*8/100, base[3]*11/100,
-        base[0]*14/100, base[1]*9/100, base[2]*9/100, base[3]*14/100,
-        base[0]*15/100, base[1]*10/100, base[2]*10/100, base[3]*15/100
+        base[0]/100, base[1]/100, base[2]/100, base[3]/100,
+        base[0]/100, base[1]/100, base[2]/100, base[3]/100,
+        base[0]/100, base[1]/100, base[2]/100, base[3]/100,
     ]
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def index():
     results = None
-    saves = load_saves()
-
-    if request.method == 'POST':
-        u = [extract_number(request.form.get(f'u{i+1}')) for i in range(9)]
-        v = [extract_number(request.form.get(f'v{i+1}')) for i in range(9)]
-        buffs = [extract_float(request.form.get(k)) for k in buff_vars]
-
-        a, b, c = buffs[:4], buffs[4:8], buffs[8:12]
-        d, e, f_ = buffs[12:16], buffs[16:20], buffs[20:24]
-
-        a_buff = make_buffs(a)
-        b_buff = make_buffs(b)
-        c_buff = make_buffs(c)
-        d_buff = make_buffs(d)
-        e_buff = make_buffs(e)
-        f_buff = make_buffs(f_)
-
-        w, x = [], []
-        for i in range(3):
-            for j in range(4):
-                w.append(u[i] * a_buff[i*4+j])
-                x.append(v[i] * d_buff[i*4+j])
-        for i in range(3, 6):
-            for j in range(4):
-                w.append(u[i] * b_buff[(i-3)*4+j])
-                x.append(v[i] * e_buff[(i-3)*4+j])
-        for i in range(6, 9):
-            for j in range(4):
-                w.append(u[i] * c_buff[(i-6)*4+j])
-                x.append(v[i] * f_buff[(i-6)*4+j])
-
-        total_w = sum(w)
-        total_x = sum(x)
-
-        if total_w > total_x:
-            message = "✅ 問題なし！素晴らしい育成だ！"
+    saved_names = load_saved_names()
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "save":
+            name = request.form.get("save_name")
+            save_data(name, request.form)
+            return redirect(url_for("index"))
+        elif action == "load":
+            name = request.form.get("load_name")
+            data = load_data(name)
+            return render_template("index.html", unit_labels=unit_labels,
+                                   buff_labels=buff_labels, buff_vars=buff_vars,
+                                   saved_names=saved_names, loaded_data=data)
+        elif action == "delete":
+            name = request.form.get("load_name")
+            delete_data(name)
+            return redirect(url_for("index"))
         else:
-            areas = buff_labels * 3
-            weak = [areas[i] for i in range(36) if w[i] < x[i]]
-            counts = Counter(weak)
-            message = "❌ 敗北しています。\n強化が必要なバフ：\n"
-            message += '\n'.join(f"{k}（{v}回）" for k, v in counts.most_common())
+            u = [extract_int(request, f'u{i+1}') for i in range(9)]
+            v = [extract_int(request, f'v{i+1}') for i in range(9)]
+            buffs = [extract_float(request, key) for key in buff_vars]
 
-        results = {'w': w, 'x': x, 'message': message, 'total_w': total_w, 'total_x': total_x}
+            a, b, c = buffs[:4], buffs[4:8], buffs[8:12]
+            d, e, f_ = buffs[12:16], buffs[16:20], buffs[20:24]
 
-    return render_template("index.html",
-        unit_labels=unit_labels,
-        buff_labels=buff_labels,
-        buff_vars=buff_vars,
-        results=results,
-        saves=saves
-    )
+            a_buff = make_buffs(a)
+            b_buff = make_buffs(b)
+            c_buff = make_buffs(c)
+            d_buff = make_buffs(d)
+            e_buff = make_buffs(e)
+            f_buff = make_buffs(f_)
 
-@app.route('/save', methods=['POST'])
-def save():
-    name = request.form.get("save_name", "").strip()
-    if name:
-        data = dict(request.form)
-        saves = load_saves()
-        saves[name] = data
-        with open(SAVE_FILE, "w", encoding="utf-8") as f:
-            json.dump(saves, f, ensure_ascii=False, indent=2)
-    return redirect(url_for('index'))
+            w, x = [], []
+            for i in range(3):
+                for j in range(4):
+                    w.append(u[i] * a_buff[j])
+                    x.append(v[i] * d_buff[j])
+            for i in range(3, 6):
+                for j in range(4):
+                    w.append(u[i] * b_buff[j])
+                    x.append(v[i] * e_buff[j])
+            for i in range(6, 9):
+                for j in range(4):
+                    w.append(u[i] * c_buff[j])
+                    x.append(v[i] * f_buff[j])
 
-@app.route('/load/<name>')
-def load(name):
-    saves = load_saves()
-    data = saves.get(name, {})
-    return render_template("index.html",
-        unit_labels=unit_labels,
-        buff_labels=buff_labels,
-        buff_vars=buff_vars,
-        results=None,
-        form_data=data,
-        saves=saves
-    )
+            total_w, total_x = sum(w), sum(x)
 
-@app.route('/delete/<name>')
-def delete(name):
-    saves = load_saves()
-    if name in saves:
-        del saves[name]
-        with open(SAVE_FILE, "w", encoding="utf-8") as f:
-            json.dump(saves, f, ensure_ascii=False, indent=2)
-    return redirect(url_for('index'))
+            if total_w > total_x:
+                message = "✅ 勝利！"
+            else:
+                buff_areas = [
+                    "盾兵攻撃力", "盾兵防御力", "盾兵殺傷力", "盾兵体力",
+                    "槍兵攻撃力", "槍兵防御力", "槍兵殺傷力", "槍兵体力",
+                    "弓兵攻撃力", "弓兵防御力", "弓兵殺傷力", "弓兵体力"
+                ] * 3
+                weak_buffs = [buff_areas[i] for i in range(36) if w[i] < x[i]]
+                counts = Counter(weak_buffs)
+                message = "❌ 敗北… 強化が必要なバフ:\n"
+                for key, val in counts.most_common():
+                    message += f"{key}（{val}回）\n"
 
-def load_saves():
-    if not os.path.exists(SAVE_FILE):
-        return {}
-    with open(SAVE_FILE, encoding="utf-8") as f:
-        return json.load(f)
+            results = {'w': w, 'x': x, 'message': message, 'total_w': total_w, 'total_x': total_x}
+
+    return render_template("index.html", unit_labels=unit_labels, buff_labels=buff_labels,
+                           buff_vars=buff_vars, results=results, saved_names=saved_names)
+
+def save_data(name, form):
+    data = {key: form[key] for key in form if key.startswith('u') or key.startswith('v') or key in buff_vars}
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
+            all_data = json.load(f)
+    else:
+        all_data = {}
+    all_data[name] = data
+    with open(SAVE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(all_data, f, ensure_ascii=False, indent=2)
+
+def load_data(name):
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
+            all_data = json.load(f)
+            return all_data.get(name)
+    return {}
+
+def load_saved_names():
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
+            all_data = json.load(f)
+            return list(all_data.keys())
+    return []
+
+def delete_data(name):
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
+            all_data = json.load(f)
+        if name in all_data:
+            del all_data[name]
+            with open(SAVE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(all_data, f, ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
     app.run(debug=True)
