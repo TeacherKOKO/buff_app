@@ -40,9 +40,18 @@ def extract_int(request, key):
 
 def make_buffs(base):
     return [
-        base[0]/100, base[1]/100, base[2]/100, base[3]/100,
-        base[0]/100, base[1]/100, base[2]/100, base[3]/100,
-        base[0]/100, base[1]/100, base[2]/100, base[3]/100,
+        base[0] + (base[0] * base[0] / 100),  # 盾兵攻撃力
+        base[1] + (base[1] * base[1] / 100),  # 盾兵防御力
+        base[2] + (base[2] * base[2] / 100),  # 盾兵殺傷力
+        base[3] + (base[3] * base[3] / 100),  # 盾兵体力
+        base[4] + (base[4] * base[4] / 100),  # 槍兵攻撃力
+        base[5] + (base[5] * base[5] / 100),  # 槍兵防御力
+        base[6] + (base[6] * base[6] / 100),  # 槍兵殺傷力
+        base[7] + (base[7] * base[7] / 100),  # 槍兵体力
+        base[8] + (base[8] * base[8] / 100),  # 弓兵攻撃力
+        base[9] + (base[9] * base[9] / 100),  # 弓兵防御力
+        base[10] + (base[10] * base[10] / 100),  # 弓兵殺傷力
+        base[11] + (base[11] * base[11] / 100),  # 弓兵体力
     ]
 
 @app.route("/", methods=["GET", "POST"])
@@ -115,39 +124,31 @@ def index():
     return render_template("index.html", unit_labels=unit_labels, buff_labels=buff_labels,
                            buff_vars=buff_vars, results=results, saved_names=saved_names)
 
-def save_data(name, form):
-    data = {key: form[key] for key in form if key.startswith('u') or key.startswith('v') or key in buff_vars}
-    if os.path.exists(SAVE_FILE):
-        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
-            all_data = json.load(f)
-    else:
-        all_data = {}
-    all_data[name] = data
-    with open(SAVE_FILE, 'w', encoding='utf-8') as f:
+def save_data(name, data):
+    all_data = load_all_data()
+    all_data[name] = dict(data)
+    with open(SAVE_FILE, "w", encoding="utf-8") as f:
         json.dump(all_data, f, ensure_ascii=False, indent=2)
 
 def load_data(name):
-    if os.path.exists(SAVE_FILE):
-        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
-            all_data = json.load(f)
-            return all_data.get(name)
-    return {}
-
-def load_saved_names():
-    if os.path.exists(SAVE_FILE):
-        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
-            all_data = json.load(f)
-            return list(all_data.keys())
-    return []
+    all_data = load_all_data()
+    return all_data.get(name, {})
 
 def delete_data(name):
-    if os.path.exists(SAVE_FILE):
-        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
-            all_data = json.load(f)
-        if name in all_data:
-            del all_data[name]
-            with open(SAVE_FILE, 'w', encoding='utf-8') as f:
-                json.dump(all_data, f, ensure_ascii=False, indent=2)
+    all_data = load_all_data()
+    if name in all_data:
+        del all_data[name]
+        with open(SAVE_FILE, "w", encoding="utf-8") as f:
+            json.dump(all_data, f, ensure_ascii=False, indent=2)
+
+def load_all_data():
+    if not os.path.exists(SAVE_FILE):
+        return {}
+    with open(SAVE_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def load_saved_names():
+    return list(load_all_data().keys())
 
 if __name__ == "__main__":
     app.run(debug=True)
